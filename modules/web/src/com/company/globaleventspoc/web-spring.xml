@@ -8,6 +8,9 @@
     <!-- Annotation-based beans -->
     <context:component-scan base-package="com.company.globaleventspoc"/>
 
+    <!-- convenient for testing -->
+    <bean id="cuba_ServerSorter" class="com.haulmont.cuba.core.sys.remoting.discovery.NoopServerSorter"/>
+
     <bean id="globevnt_MBeanExporter" lazy-init="false"
           class="com.haulmont.cuba.core.sys.jmx.MBeanExporter">
         <property name="beans">
