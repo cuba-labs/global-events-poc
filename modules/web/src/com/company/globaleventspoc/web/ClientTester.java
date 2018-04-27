@@ -1,6 +1,11 @@
 package com.company.globaleventspoc.web;
 
+import com.company.globaleventspoc.GlobalCacheResetEvent;
+import com.company.globaleventspoc.GlobalNotificationEvent;
 import com.google.common.base.Strings;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.PreDestroy;
@@ -11,10 +16,12 @@ import java.util.concurrent.Executors;
 @Component("globevnt_ClientTester")
 public class ClientTester implements ClientTesterMBean {
 
+    private static final Logger log = LoggerFactory.getLogger(ClientTester.class);
+
     private ExecutorService executor = Executors.newSingleThreadExecutor();
 
     @Inject
-    private UiNotifier uiNotifier;
+    private GlobalWebEvents globalWebEvents;
 
     @Inject
     private WebSocketClient wsClient;
@@ -34,7 +41,7 @@ public class ClientTester implements ClientTesterMBean {
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
             }
-            uiNotifier.sendMessage(msg);
+            globalWebEvents.publish(new GlobalNotificationEvent(this, msg));
         });
         return "done";
     }
@@ -49,5 +56,10 @@ public class ClientTester implements ClientTesterMBean {
     public String disconnect() {
         wsClient.disconnect();
         return "done";
+    }
+
+    @EventListener
+    public void cacheReset(GlobalCacheResetEvent event) {
+        log.info("GlobalCacheResetEvent received: " + event);
     }
 }

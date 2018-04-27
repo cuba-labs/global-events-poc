@@ -1,5 +1,8 @@
 package com.company.globaleventspoc.core;
 
+import com.company.globaleventspoc.GlobalCacheResetEvent;
+import com.company.globaleventspoc.GlobalNotificationEvent;
+import com.haulmont.cuba.core.global.Events;
 import org.springframework.stereotype.Component;
 
 import javax.inject.Inject;
@@ -8,12 +11,17 @@ import javax.inject.Inject;
 public class ServerTester implements ServerTesterMBean {
 
     @Inject
-    private WebSocketServer wsServer;
-
+    private Events events;
 
     @Override
-    public String test(String message) {
-        wsServer.sendMessage(message);
+    public String sendGlobalMessage(String message) {
+        events.publish(new GlobalNotificationEvent(this, message));
+        return "done";
+    }
+
+    @Override
+    public String sendGlobalCacheReset() {
+        events.publish(new GlobalCacheResetEvent(this));
         return "done";
     }
 }

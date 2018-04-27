@@ -2,5 +2,7 @@ package com.company.globaleventspoc.core;
 
 public interface ServerTesterMBean {
 
-    String test(String message);
+    String sendGlobalMessage(String message);
+
+    String sendGlobalCacheReset();
 }

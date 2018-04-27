@@ -1,10 +1,12 @@
 package com.company.globaleventspoc.web;
 
+import com.company.globaleventspoc.GlobalUiEvent;
 import com.haulmont.cuba.core.global.Events;
 import com.haulmont.cuba.web.App;
 import com.haulmont.cuba.web.AppUI;
 import com.haulmont.cuba.web.security.events.AppStartedEvent;
 import com.vaadin.server.VaadinSession;
+import org.springframework.context.ApplicationEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
@@ -14,15 +16,12 @@ import java.util.List;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-@Component("globevnt_UiNotifier")
-public class UiNotifier {
+@Component("globevnt_GlobalWebEvents")
+public class GlobalWebEvents {
 
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
 
     private final List<VaadinSession> sessions = new ArrayList<>();
-
-    @Inject
-    private Events events;
 
     @EventListener
     public void onAppStart(AppStartedEvent event) {
@@ -34,7 +33,7 @@ public class UiNotifier {
         }
     }
 
-    public void sendMessage(String message) {
+    public void publish(ApplicationEvent event) {
         ArrayList<VaadinSession> activeSessions;
 
         lock.readLock().lock();
@@ -57,9 +56,7 @@ public class UiNotifier {
                         if (!ui.isClosing()) {
                             // work in context of UI
                             ui.accessSynchronously(() -> {
-                                events.publish(new FooEvent(message));
-//                                new Notification(message, Notification.Type.TRAY_NOTIFICATION)
-//                                        .show(ui.getPage());
+                                ui.getUiEventsMulticaster().multicastEvent(event);
                             });
                         }
                     }

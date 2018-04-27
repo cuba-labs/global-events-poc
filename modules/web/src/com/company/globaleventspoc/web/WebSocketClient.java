@@ -1,6 +1,8 @@
 package com.company.globaleventspoc.web;
 
-import com.company.globaleventspoc.Message;
+import com.company.globaleventspoc.GlobalEvent;
+import com.company.globaleventspoc.GlobalUiEvent;
+import com.haulmont.cuba.core.global.Events;
 import com.haulmont.cuba.core.sys.events.AppContextStoppedEvent;
 import com.haulmont.cuba.core.sys.remoting.discovery.ServerSelector;
 import com.haulmont.cuba.core.sys.remoting.discovery.StickySessionServerSelector;
@@ -9,6 +11,7 @@ import com.haulmont.cuba.web.security.events.AppStartedEvent;
 import org.atmosphere.wasync.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
@@ -28,7 +31,10 @@ public class WebSocketClient {
     private ServerSelector serverSelector;
 
     @Inject
-    private UiNotifier uiNotifier;
+    private GlobalWebEvents globalWebEvents;
+
+    @Inject
+    private Events events;
 
     @EventListener(AppStartedEvent.class)
     public void init() {
@@ -85,9 +91,9 @@ public class WebSocketClient {
         RequestBuilder request = client.newRequestBuilder()
                 .method(Request.METHOD.GET)
                 .uri(serverUrl + "atmosphere")
-                .decoder(new Decoder<String, Message>() {
+                .decoder(new Decoder<String, GlobalEvent>() {
                     @Override
-                    public Message decode(Event type, String str) {
+                    public GlobalEvent decode(Event type, String str) {
                         str = str.trim();
 
                         // Padding from Atmosphere, skip
@@ -102,7 +108,7 @@ public class WebSocketClient {
                                     str = str.substring(i + 1);
                                 }
                                 byte[] bytes = Base64.getDecoder().decode(str.getBytes("UTF-8"));
-                                return (Message) SerializationSupport.deserialize(bytes);
+                                return (GlobalEvent) SerializationSupport.deserialize(bytes);
                             } catch (IOException e) {
                                 log.info("Invalid message {}", str);
                                 return null;
@@ -117,11 +123,11 @@ public class WebSocketClient {
 
         socket = client.create();
         socket
-                .on("message", new Function<Message>() {
+                .on("message", new Function<GlobalEvent>() {
                     @Override
-                    public void on(Message m) {
-                        log.info("message payload: " + m.getPayload());
-                        uiNotifier.sendMessage(m.getPayload());
+                    public void on(GlobalEvent event) {
+                        log.info("GlobalEvent received: " + event);
+                        publishEvent(event);
                     }
                 })
                 .on(new Function<Throwable>() {
@@ -137,6 +143,14 @@ public class WebSocketClient {
                     }
                 })
                 .open(request.build());
+    }
+
+    private void publishEvent(GlobalEvent event) {
+        if (event instanceof GlobalUiEvent) {
+            globalWebEvents.publish((ApplicationEvent) event);
+        } else {
+            events.publish((ApplicationEvent) event);
+        }
     }
 
     @EventListener(AppContextStoppedEvent.class)

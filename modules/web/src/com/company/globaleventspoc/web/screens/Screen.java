@@ -1,6 +1,6 @@
 package com.company.globaleventspoc.web.screens;
 
-import com.company.globaleventspoc.web.FooEvent;
+import com.company.globaleventspoc.GlobalNotificationEvent;
 import com.haulmont.cuba.gui.components.AbstractWindow;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -11,7 +11,7 @@ public class Screen extends AbstractWindow {
     private static final Logger log = LoggerFactory.getLogger(Screen.class);
 
     @EventListener
-    public void onFooEvent(FooEvent fooEvent) {
-        showNotification("foo: " + fooEvent.getSource());
+    public void onGlobalNotification(GlobalNotificationEvent globalNotificationEvent) {
+        showNotification("Global Notification: " + globalNotificationEvent.getText());
     }
 }

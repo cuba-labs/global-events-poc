@@ -27,7 +27,7 @@ public class GlobevntTestContainer extends TestContainer {
                 // in appPropertiesConfig context parameter of the core module
                 "com/company/globaleventspoc/app.properties",
                 // Add this file which is located in CUBA and defines some properties
-                // specifically for test environment. You can replace it with your own
+                // specifically for sendGlobalMessage environment. You can replace it with your own
                 // or add another one in the end.
                 "test-app.properties");
         initDbProperties();

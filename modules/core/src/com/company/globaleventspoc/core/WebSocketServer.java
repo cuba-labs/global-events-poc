@@ -1,7 +1,7 @@
 package com.company.globaleventspoc.core;
 
 
-import com.company.globaleventspoc.Message;
+import com.company.globaleventspoc.GlobalEvent;
 import com.haulmont.cuba.core.sys.serialization.SerializationSupport;
 import com.haulmont.cuba.core.sys.servlet.events.ServletContextInitializedEvent;
 import org.atmosphere.cpr.AtmosphereServlet;
@@ -37,8 +37,8 @@ public class WebSocketServer {
         broadcasterFactory = s.framework().getBroadcasterFactory();
     }
 
-    public void sendMessage(String message) {
-        byte[] bytes = SerializationSupport.serialize(new Message(message));
+    public void sendEvent(GlobalEvent event) {
+        byte[] bytes = SerializationSupport.serialize(event);
         String str;
         try {
             str = new String(Base64.getEncoder().encode(bytes), "UTF-8");
