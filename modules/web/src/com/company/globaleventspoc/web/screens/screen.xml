@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<window xmlns="http://schemas.haulmont.com/cuba/window.xsd"
+        caption="msg://caption"
+        class="com.company.globaleventspoc.web.screens.Screen"
+        messagesPack="com.company.globaleventspoc.web.screens">
+    <dialogMode height="600"
+                width="800"/>
+    <layout>
+        <hbox spacing="true">
+        </hbox>
+    </layout>
+</window>
