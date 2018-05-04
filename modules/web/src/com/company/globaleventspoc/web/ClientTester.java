@@ -3,6 +3,7 @@ package com.company.globaleventspoc.web;
 import com.company.globaleventspoc.GlobalCacheResetEvent;
 import com.company.globaleventspoc.GlobalNotificationEvent;
 import com.google.common.base.Strings;
+import com.haulmont.cuba.core.global.Events;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.event.EventListener;
@@ -21,7 +22,7 @@ public class ClientTester implements ClientTesterMBean {
     private ExecutorService executor = Executors.newSingleThreadExecutor();
 
     @Inject
-    private GlobalWebEvents globalWebEvents;
+    private Events events;
 
     @Inject
     private WebSocketClient wsClient;
@@ -41,7 +42,7 @@ public class ClientTester implements ClientTesterMBean {
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
             }
-            globalWebEvents.publish(new GlobalNotificationEvent(this, msg));
+            events.publish(new GlobalNotificationEvent(this, msg));
         });
         return "done";
     }

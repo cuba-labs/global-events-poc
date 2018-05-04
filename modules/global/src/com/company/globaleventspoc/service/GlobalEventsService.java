@@ -1,10 +1,9 @@
 package com.company.globaleventspoc.service;
 
-
-import com.company.globaleventspoc.GlobalEvent;
+import com.company.globaleventspoc.GlobalApplicationEvent;
 
 public interface GlobalEventsService {
     String NAME = "globevnt_GlobalEventsService";
 
-    void sendEvent(GlobalEvent event);
+    void sendEvent(GlobalApplicationEvent event);
 }

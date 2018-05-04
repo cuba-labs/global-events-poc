@@ -1,8 +1,6 @@
 package com.company.globaleventspoc;
 
-import org.springframework.context.ApplicationEvent;
-
-public class GlobalNotificationEvent extends ApplicationEvent implements GlobalUiEvent {
+public class GlobalNotificationEvent extends GlobalApplicationEvent implements GlobalUiEvent {
 
     private String text;
 

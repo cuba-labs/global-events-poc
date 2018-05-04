@@ -1,8 +1,6 @@
 package com.company.globaleventspoc;
 
-import org.springframework.context.ApplicationEvent;
-
-public class GlobalCacheResetEvent extends ApplicationEvent implements GlobalEvent {
+public class GlobalCacheResetEvent extends GlobalApplicationEvent {
 
     /**
      * Create a new ApplicationEvent.

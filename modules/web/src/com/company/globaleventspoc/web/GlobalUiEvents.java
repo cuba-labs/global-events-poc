@@ -1,7 +1,5 @@
 package com.company.globaleventspoc.web;
 
-import com.company.globaleventspoc.GlobalUiEvent;
-import com.haulmont.cuba.core.global.Events;
 import com.haulmont.cuba.web.App;
 import com.haulmont.cuba.web.AppUI;
 import com.haulmont.cuba.web.security.events.AppStartedEvent;
@@ -10,14 +8,13 @@ import org.springframework.context.ApplicationEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
-import javax.inject.Inject;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-@Component("globevnt_GlobalWebEvents")
-public class GlobalWebEvents {
+@Component("globevnt_GlobalUiEvents")
+public class GlobalUiEvents {
 
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
 
