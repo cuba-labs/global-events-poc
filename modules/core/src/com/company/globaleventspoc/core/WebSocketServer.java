@@ -5,6 +5,7 @@ import com.company.globaleventspoc.GlobalApplicationEvent;
 import com.haulmont.cuba.core.sys.serialization.SerializationSupport;
 import com.haulmont.cuba.core.sys.servlet.events.ServletContextInitializedEvent;
 import org.atmosphere.cpr.AtmosphereServlet;
+import org.atmosphere.cpr.Broadcaster;
 import org.atmosphere.cpr.BroadcasterFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,6 +36,7 @@ public class WebSocketServer {
         ((ServletRegistration.Dynamic) servletRegistration).setAsyncSupported(true);
 
         broadcasterFactory = s.framework().getBroadcasterFactory();
+        log.info("broadcasterFactory=" + broadcasterFactory);
     }
 
     public void sendEvent(GlobalApplicationEvent event) {
@@ -45,6 +47,8 @@ public class WebSocketServer {
         } catch (UnsupportedEncodingException e) {
             throw new RuntimeException(e);
         }
-        broadcasterFactory.lookup("/atmosphere").broadcast(str);
+        Broadcaster broadcaster = broadcasterFactory.lookup("/atmosphere");
+        log.info("'/atmosphere' broadcaster=" + broadcaster);
+        broadcaster.broadcast(str);
     }
 }

@@ -2,37 +2,19 @@
 
 <configuration debug="false" packagingData="true">
 
-    <property name="logDir" value="${catalina.base}/logs"/>
+    <property name="logDir" value="${catalina.base}/../logs"/>
 
-    <appender name="DB" class="ch.qos.logback.classic.db.DBAppender">
-        <connectionSource class="ch.qos.logback.core.db.DataSourceConnectionSource">
-            <dataSource class="org.apache.tomcat.dbcp.dbcp2.BasicDataSource">
-                <driverClassName>org.postgresql.Driver</driverClassName>
-                <url>jdbc:postgresql://localhost/globevnt</url>
-                <username>cuba</username>
-                <password>cuba</password>
-            </dataSource>
-        </connectionSource>
-        <sqlDialect class="ch.qos.logback.core.db.dialect.PostgreSQLDialect"/>
-    </appender>
-
-    <appender name="File" class="ch.qos.logback.core.rolling.RollingFileAppender">
+    <appender name="File" class="ch.qos.logback.core.FileAppender">
         <file>${logDir}/app.log</file>
+        <append>true</append>
+        <prudent>true</prudent>
 
         <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
             <level>DEBUG</level>
         </filter>
 
-        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-            <!-- daily rollover -->
-            <fileNamePattern>${logDir}/app.%d{yyyy-MM-dd}.log</fileNamePattern>
-            <!-- keep 30 days' worth of history -->
-            <maxHistory>30</maxHistory>
-            <cleanHistoryOnStart>true</cleanHistoryOnStart>
-        </rollingPolicy>
-
         <encoder>
-            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%thread%X{cubaApp}%X{cubaUser}] %logger - %msg%n</pattern>
+            <pattern>[${cubaBlock}] %d{HH:mm:ss.SSS} %-5level [%thread%X{cubaApp}%X{cubaUser}] %logger - %msg%n</pattern>
         </encoder>
     </appender>
 
@@ -49,7 +31,6 @@
     <root>
         <appender-ref ref="Console"/>
         <appender-ref ref="File"/>
-        <appender-ref ref="DB"/>
     </root>
 
     <!-- Begin CUBA -->

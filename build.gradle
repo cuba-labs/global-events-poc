@@ -215,22 +215,6 @@ def tomcat2Dir = cuba.tomcat.dir + '2'
 def tomcat3Dir = cuba.tomcat.dir + '3'
 def tomcat4Dir = cuba.tomcat.dir + '4'
 
-task setupTomcat1(type: CubaSetupTomcat) {
-    tomcatRootDir = tomcat1Dir
-}
-
-task setupTomcat2(type: CubaSetupTomcat) {
-    tomcatRootDir = tomcat2Dir
-}
-
-task setupTomcat3(type: CubaSetupTomcat) {
-    tomcatRootDir = tomcat3Dir
-}
-
-task setupTomcat4(type: CubaSetupTomcat) {
-    tomcatRootDir = tomcat4Dir
-}
-
 task dropTomcat1(type: CubaDropTomcat) {
     tomcatRootDir = tomcat1Dir
     listeningPort = 18787
@@ -249,6 +233,22 @@ task dropTomcat3(type: CubaDropTomcat) {
 task dropTomcat4(type: CubaDropTomcat) {
     tomcatRootDir = tomcat4Dir
     listeningPort = 48787
+}
+
+task setupTomcat1(dependsOn: dropTomcat1, type: CubaSetupTomcat) {
+    tomcatRootDir = tomcat1Dir
+}
+
+task setupTomcat2(dependsOn: dropTomcat2, type: CubaSetupTomcat) {
+    tomcatRootDir = tomcat2Dir
+}
+
+task setupTomcat3(dependsOn: dropTomcat3, type: CubaSetupTomcat) {
+    tomcatRootDir = tomcat3Dir
+}
+
+task setupTomcat4(dependsOn: dropTomcat4, type: CubaSetupTomcat) {
+    tomcatRootDir = tomcat4Dir
 }
 
 task startTomcat1(type: CubaStartTomcat) {
@@ -270,12 +270,12 @@ task startTomcat4(type: CubaStartTomcat) {
 task startCluster(dependsOn: [startTomcat1, startTomcat2, startTomcat3, startTomcat4])
 
 configure(coreModule) {
-    task deploy1(dependsOn: [assemble, cleanConf], type: CubaDeployment) {
+    task deploy1(dependsOn: [assemble, cleanConf, setupTomcat1], type: CubaDeployment) {
         tomcatRootDir = tomcat1Dir
         appName = "${modulePrefix}-core"
         appJars(modulePrefix + '-global', modulePrefix + '-core')
     }
-    task deploy2(dependsOn: [assemble, cleanConf], type: CubaDeployment) {
+    task deploy2(dependsOn: [assemble, cleanConf, setupTomcat2], type: CubaDeployment) {
         tomcatRootDir = tomcat2Dir
         appName = "${modulePrefix}-core"
         appJars(modulePrefix + '-global', modulePrefix + '-core')
@@ -283,40 +283,28 @@ configure(coreModule) {
 }
 
 configure(webModule) {
-    task deploy3(dependsOn: [assemble, cleanConf], type: CubaDeployment) {
+    task deploy3(dependsOn: [assemble, cleanConf, setupTomcat3], type: CubaDeployment) {
         tomcatRootDir = tomcat3Dir
         appName = "${modulePrefix}"
         appJars(modulePrefix + '-global', modulePrefix + '-web')
     }
-    task deploy4(dependsOn: [assemble, cleanConf], type: CubaDeployment) {
+    task deploy4(dependsOn: [assemble, cleanConf, setupTomcat4], type: CubaDeployment) {
         tomcatRootDir = tomcat4Dir
         appName = "${modulePrefix}"
         appJars(modulePrefix + '-global', modulePrefix + '-web')
     }
 }
 
-task prepareCluster(dependsOn: [globalModule.assemble, coreModule.assemble, webModule.assemble], description: 'Prepare cluster') << {
+task prepareCluster(dependsOn: [globalModule.assemble, coreModule.assemble, webModule.assemble,
+                                coreModule.deploy1, coreModule.deploy2, webModule.deploy3, webModule.deploy4]) {
+    doLast {
+        setupCoreConfigFiles(tomcat1Dir, 1)
+        setupCoreConfigFiles(tomcat2Dir, 2)
+        setupWebConfigFiles(tomcat3Dir, 3)
+        setupWebConfigFiles(tomcat4Dir, 4)
 
-    dropTomcat1.execute()
-    dropTomcat2.execute()
-    dropTomcat3.execute()
-    dropTomcat4.execute()
-
-    setupTomcat1.execute()
-    coreModule.deploy1.execute()
-    setupCoreConfigFiles(tomcat1Dir, 1)
-
-    setupTomcat2.execute()
-    coreModule.deploy2.execute()
-    setupCoreConfigFiles(tomcat2Dir, 2)
-
-    setupTomcat3.execute()
-    webModule.deploy3.execute()
-    setupWebConfigFiles(tomcat3Dir, 3)
-
-    setupTomcat4.execute()
-    webModule.deploy4.execute()
-    setupWebConfigFiles(tomcat4Dir, 4)
+        delete("$rootDir/deploy/logs")
+    }
 }
 
 void setupWebConfigFiles(String rootDir, int n) {
@@ -330,6 +318,8 @@ void setupWebConfigFiles(String rootDir, int n) {
         entry(key: 'cubazk.connection', value: '127.0.0.1:2181')
     }
     ant.replace(file: appPropFile, token: '\\:', value: ':')
+
+    setupLogging(rootDir, n)
 }
 
 void setupCoreConfigFiles(String rootDir, int n) {
@@ -347,6 +337,8 @@ void setupCoreConfigFiles(String rootDir, int n) {
         entry(key: 'jgroups.zkping.connection', value: '127.0.0.1:2181')
     }
     ant.replace(file: appPropFile, token: '\\:', value: ':')
+
+    setupLogging(rootDir, n)
 }
 
 void replacePorts(String rootDir, int n) {
@@ -355,4 +347,17 @@ void replacePorts(String rootDir, int n) {
     ant.replace(file: "${rootDir}/conf/server.xml", token: '8080', value: "${n}8080")
     ant.replace(file: "${rootDir}/bin/setenv.sh", token: '8787', value: "${n}8787")
     ant.replace(file: "${rootDir}/bin/setenv.bat", token: '8787', value: "${n}8787")
+}
+
+def setupLogging(String rootDir, int n) {
+    copy {
+        from "${rootProject.rootDir}/etc/logback.xml"
+        into "${rootDir}/conf"
+    }
+    ant.echo(file: "${rootDir}/bin/setenv.sh", append: true, message: "\nCATALINA_OPTS=\"\$CATALINA_OPTS -DcubaBlock=b${n}\"")
+    // Remote JMX for core blocks
+    if (n == 1 || n == 2) {
+        ant.echo(file: "${rootDir}/bin/setenv.sh", append: true, message: "\nCATALINA_OPTS=\"\$CATALINA_OPTS -Djava.rmi.server.hostname=localhost -Dcom.sun.management.jmxremote.port=${n}7777 -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.authenticate=false\"")
+    }
+    ant.chmod(file: "${rootDir}/bin/setenv.sh", perm: 'a+x')
 }
