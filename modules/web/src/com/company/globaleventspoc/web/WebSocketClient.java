@@ -8,23 +8,33 @@ import com.haulmont.cuba.core.sys.remoting.discovery.ServerSelector;
 import com.haulmont.cuba.core.sys.remoting.discovery.StickySessionServerSelector;
 import com.haulmont.cuba.core.sys.serialization.SerializationSupport;
 import com.haulmont.cuba.web.security.events.AppStartedEvent;
-import org.atmosphere.wasync.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
+import org.springframework.web.socket.CloseStatus;
+import org.springframework.web.socket.TextMessage;
+import org.springframework.web.socket.WebSocketSession;
+import org.springframework.web.socket.client.WebSocketConnectionManager;
+import org.springframework.web.socket.client.standard.StandardWebSocketClient;
+import org.springframework.web.socket.handler.TextWebSocketHandler;
+import org.springframework.web.socket.sockjs.client.SockJsClient;
+import org.springframework.web.socket.sockjs.client.Transport;
+import org.springframework.web.socket.sockjs.client.WebSocketTransport;
 
 import javax.annotation.Resource;
 import javax.inject.Inject;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Base64;
+import java.util.List;
 
 @Component("globevnt_WebSocketClient")
 public class WebSocketClient {
 
     private static final Logger log = LoggerFactory.getLogger(WebSocketClient.class);
 
-    private Socket socket;
+    private WebSocketSession webSocketSession;
 
     @Resource(name = ServerSelector.NAME)
     private ServerSelector serverSelector;
@@ -51,9 +61,9 @@ public class WebSocketClient {
     }
 
     public synchronized void connect() {
-        if (socket != null)
+        if (webSocketSession != null)
             return;
-        log.info("Opening socket");
+        log.info("Opening WebSocket session");
 
         Object context = serverSelector.initContext();
         String url = getUrl(context);
@@ -88,63 +98,36 @@ public class WebSocketClient {
     private void tryConnect(String serverUrl) throws IOException {
         log.debug("Connecting to " + serverUrl);
 
-        Client client = ClientFactory.getDefault().newClient();
+        org.springframework.web.socket.client.WebSocketClient simpleWebSocketClient = new StandardWebSocketClient();
+        List<Transport> transports = new ArrayList<>(1);
+        transports.add(new WebSocketTransport(simpleWebSocketClient));
+        SockJsClient sockJsClient = new SockJsClient(transports);
 
-        RequestBuilder request = client.newRequestBuilder()
-                .method(Request.METHOD.GET)
-                .uri(serverUrl + "atmosphere")
-                .decoder(new Decoder<String, GlobalApplicationEvent>() {
+        WebSocketConnectionManager connectionManager = new WebSocketConnectionManager(sockJsClient,
+                new TextWebSocketHandler() {
+
                     @Override
-                    public GlobalApplicationEvent decode(Event type, String str) {
-                        str = str.trim();
-
-                        // Padding from Atmosphere, skip
-                        if (str.length() == 0) {
-                            return null;
-                        }
-
-                        if (type.equals(Event.MESSAGE)) {
-                            try {
-                                int i = str.indexOf('|');
-                                if (i > -1) {
-                                    str = str.substring(i + 1);
-                                }
-                                byte[] bytes = Base64.getDecoder().decode(str.getBytes("UTF-8"));
-                                return (GlobalApplicationEvent) SerializationSupport.deserialize(bytes);
-                            } catch (IOException e) {
-                                log.info("Invalid message {}", str);
-                                return null;
-                            }
-                        } else {
-                            return null;
-                        }
+                    public void afterConnectionEstablished(WebSocketSession session) throws Exception {
+                        log.info("Opened " + session);
+                        webSocketSession = session;
                     }
-                })
-                .transport(Request.TRANSPORT.WEBSOCKET)
-                .transport(Request.TRANSPORT.LONG_POLLING);
 
-        socket = client.create();
-        socket
-                .on("message", new Function<GlobalApplicationEvent>() {
                     @Override
-                    public void on(GlobalApplicationEvent event) {
-                        log.info("Received GlobalApplicationEvent: " + event);
+                    public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
+                        log.info("Closed " + session);
+                        webSocketSession = null;
+                    }
+
+                    @Override
+                    protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
+                        log.info("Received message {} from {}", message, session);
+                        byte[] bytes = Base64.getDecoder().decode(message.getPayload().getBytes("UTF-8"));
+                        GlobalApplicationEvent event = (GlobalApplicationEvent) SerializationSupport.deserialize(bytes);
                         publishEvent(event);
                     }
-                })
-                .on(new Function<Throwable>() {
-                    @Override
-                    public void on(Throwable t) {
-                        log.info("error: " + t);
-                    }
-                })
-                .on(new Function<String>() {
-                    @Override
-                    public void on(String o) {
-                        log.info("event: " + o);
-                    }
-                })
-                .open(request.build());
+                },
+                serverUrl + "websocket/wsHandler");
+        connectionManager.start();
     }
 
     private void publishEvent(GlobalApplicationEvent event) {
@@ -163,7 +146,11 @@ public class WebSocketClient {
     @EventListener(AppContextStoppedEvent.class)
     public synchronized void disconnect() {
         log.info("Closing socket");
-        socket.close();
-        socket = null;
+        try {
+            webSocketSession.close();
+        } catch (IOException e) {
+            log.warn("Error closing WebSocket session: " + e);
+        }
+        webSocketSession = null;
     }
 }

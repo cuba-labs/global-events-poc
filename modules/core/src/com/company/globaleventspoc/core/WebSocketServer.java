@@ -3,41 +3,25 @@ package com.company.globaleventspoc.core;
 
 import com.company.globaleventspoc.GlobalApplicationEvent;
 import com.haulmont.cuba.core.sys.serialization.SerializationSupport;
-import com.haulmont.cuba.core.sys.servlet.events.ServletContextInitializedEvent;
-import org.atmosphere.cpr.AtmosphereServlet;
-import org.atmosphere.cpr.Broadcaster;
-import org.atmosphere.cpr.BroadcasterFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
+import org.springframework.web.socket.TextMessage;
+import org.springframework.web.socket.WebSocketSession;
 
-import javax.servlet.ServletRegistration;
+import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+import java.util.ArrayList;
 import java.util.Base64;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 @Component("globevnt_Server")
 public class WebSocketServer {
 
     private static final Logger log = LoggerFactory.getLogger(WebSocketServer.class);
 
-    private BroadcasterFactory broadcasterFactory;
-
-    @EventListener
-    public void init(ServletContextInitializedEvent e) {
-        log.info("Creating Atmosphere");
-        AtmosphereServlet s = new AtmosphereServlet();
-
-        ServletRegistration servletRegistration = e.getSource().addServlet("AtmosphereServlet", s);
-
-        servletRegistration.addMapping("/atmosphere/*");
-        servletRegistration.setInitParameter("org.atmosphere.cpr.packages", "com.sample.cubawebsockets.core.atmosphere");
-        servletRegistration.setInitParameter("org.atmosphere.interceptor.HeartbeatInterceptor.clientHeartbeatFrequencyInSeconds", "10");
-        ((ServletRegistration.Dynamic) servletRegistration).setAsyncSupported(true);
-
-        broadcasterFactory = s.framework().getBroadcasterFactory();
-        log.info("broadcasterFactory=" + broadcasterFactory);
-    }
+    private List<WebSocketSession> sessions = new CopyOnWriteArrayList<>();
 
     public void sendEvent(GlobalApplicationEvent event) {
         byte[] bytes = SerializationSupport.serialize(event);
@@ -47,8 +31,24 @@ public class WebSocketServer {
         } catch (UnsupportedEncodingException e) {
             throw new RuntimeException(e);
         }
-        Broadcaster broadcaster = broadcasterFactory.lookup("/atmosphere");
-        log.info("'/atmosphere' broadcaster=" + broadcaster);
-        broadcaster.broadcast(str);
+
+        for (WebSocketSession session : new ArrayList<>(sessions)) {
+            try {
+                TextMessage message = new TextMessage(str);
+                log.info("Sending message {} to {}", message, session);
+                session.sendMessage(message);
+            } catch (IOException e) {
+                log.warn("Error sending message: " + e);
+                removeSession(session);
+            }
+        }
+    }
+
+    public void addSession(WebSocketSession session) {
+        sessions.add(session);
+    }
+
+    public void removeSession(WebSocketSession session) {
+        sessions.remove(session);
     }
 }
