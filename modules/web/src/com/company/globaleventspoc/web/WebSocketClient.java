@@ -2,11 +2,13 @@ package com.company.globaleventspoc.web;
 
 import com.company.globaleventspoc.GlobalApplicationEvent;
 import com.company.globaleventspoc.GlobalUiEvent;
+import com.haulmont.cuba.client.ClientConfig;
 import com.haulmont.cuba.core.global.Events;
 import com.haulmont.cuba.core.sys.events.AppContextStoppedEvent;
 import com.haulmont.cuba.core.sys.remoting.discovery.ServerSelector;
 import com.haulmont.cuba.core.sys.remoting.discovery.StickySessionServerSelector;
 import com.haulmont.cuba.core.sys.serialization.SerializationSupport;
+import com.haulmont.cuba.web.WebConfig;
 import com.haulmont.cuba.web.auth.WebAuthConfig;
 import com.haulmont.cuba.web.security.events.AppStartedEvent;
 import org.slf4j.Logger;
@@ -53,16 +55,23 @@ public class WebSocketClient {
     @Inject
     private WebAuthConfig webAuthConfig;
 
+    @Inject
+    private WebConfig webConfig;
+
     @EventListener(AppStartedEvent.class)
     public void init() {
-        // connect on first web request
-        connect();
+        if (!webConfig.getUseLocalServiceInvocation()) {
+            // connect on first web request
+            connect();
+        }
     }
 
     @EventListener(AppContextStoppedEvent.class)
     public void dispose() {
-        // disconnect on server shutdown
-        disconnect();
+        if (!webConfig.getUseLocalServiceInvocation()) {
+            // disconnect on server shutdown
+            disconnect();
+        }
     }
 
     public synchronized void connect() {
@@ -147,13 +156,14 @@ public class WebSocketClient {
         }
     }
 
-    @EventListener(AppContextStoppedEvent.class)
     public synchronized void disconnect() {
-        log.info("Closing session");
-        try {
-            webSocketSession.close();
-        } catch (IOException e) {
-            log.warn("Error closing session: " + e);
+        if (webSocketSession != null && webSocketSession.isOpen()) {
+            log.info("Closing session");
+            try {
+                webSocketSession.close();
+            } catch (IOException e) {
+                log.warn("Error closing session: " + e);
+            }
         }
         webSocketSession = null;
     }

@@ -19,6 +19,9 @@ public class GlobalEventsCoreBroadcaster {
     private WebSocketServer wsServer;
 
     @Inject
+    private LocalServer localServer;
+
+    @Inject
     private Events events;
 
     private ClusterManagerAPI clusterManagerAPI;
@@ -40,6 +43,7 @@ public class GlobalEventsCoreBroadcaster {
             event.setServerOrigin(origin);
             clusterManagerAPI.send(event);
         }
+        localServer.sendEvent(event);
         wsServer.sendEvent(event);
     }
 }

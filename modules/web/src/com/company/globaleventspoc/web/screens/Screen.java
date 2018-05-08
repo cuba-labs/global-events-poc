@@ -12,6 +12,7 @@ public class Screen extends AbstractWindow {
 
     @EventListener
     public void onGlobalNotification(GlobalNotificationEvent globalNotificationEvent) {
+        log.info("Global Notification: " + globalNotificationEvent.getText());
         showNotification("Global Notification: " + globalNotificationEvent.getText());
     }
 }

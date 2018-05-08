@@ -23,6 +23,7 @@ def modulePrefix = 'app'
 def globalModule = project(":${modulePrefix}-global")
 def coreModule = project(":${modulePrefix}-core")
 def webModule = project(":${modulePrefix}-web")
+def sharedLibModule = project(":${modulePrefix}-shared-lib")
 
 def servletApi = 'org.apache.tomcat:tomcat-servlet-api:8.0.26'
 
@@ -56,7 +57,7 @@ dependencies {
 
 def postgres = 'org.postgresql:postgresql:9.4.1212'
 
-configure([globalModule, coreModule, webModule]) {
+configure([globalModule, coreModule, webModule, sharedLibModule]) {
     apply(plugin: 'java')
     apply(plugin: 'maven')
     apply(plugin: 'idea')
@@ -91,6 +92,7 @@ configure(coreModule) {
 
     dependencies {
         compile(globalModule)
+        compile(sharedLibModule)
         provided(servletApi)
         jdbc(postgres)
         testRuntime(postgres)
@@ -144,6 +146,7 @@ configure(webModule) {
     dependencies {
         provided(servletApi)
         compile(globalModule)
+        compile(sharedLibModule)
         compile('org.springframework:spring-websocket:4.3.12.RELEASE')
     }
     
@@ -358,4 +361,17 @@ def setupLogging(String rootDir, int n) {
         ant.echo(file: "${rootDir}/bin/setenv.sh", append: true, message: "\nCATALINA_OPTS=\"\$CATALINA_OPTS -Djava.rmi.server.hostname=localhost -Dcom.sun.management.jmxremote.port=${n}7777 -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.authenticate=false\"")
     }
     ant.chmod(file: "${rootDir}/bin/setenv.sh", perm: 'a+x')
+}
+task buildWar(type: CubaWarBuilding) {
+    includeContextXml = true
+    includeJdbcDriver = true
+    webXmlPath = 'modules/web/web/WEB-INF/single-war-web.xml'
+    appProperties = ['cuba.automaticDatabaseUpdate' : true]
+    appHome = 'app_home'
+}
+
+task buildUberJar(type: CubaUberJarBuilding) {
+    singleJar = true
+    coreJettyEnvPath = 'modules/core/web/META-INF/jetty-env.xml'
+    appProperties = ['cuba.automaticDatabaseUpdate' : true]
 }

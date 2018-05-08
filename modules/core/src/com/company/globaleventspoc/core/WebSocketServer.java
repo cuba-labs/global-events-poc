@@ -28,26 +28,28 @@ public class WebSocketServer {
     private ServerConfig serverConfig;
 
     public void sendEvent(GlobalApplicationEvent event) {
-        byte[] bytes = SerializationSupport.serialize(event);
-        String str;
-        try {
-            str = new String(Base64.getEncoder().encode(bytes), "UTF-8");
-        } catch (UnsupportedEncodingException e) {
-            throw new RuntimeException(e);
-        }
-
         Iterator<Map.Entry<WebSocketSession, Boolean>> it = sessions.entrySet().iterator();
-        while (it.hasNext()) {
-            Map.Entry<WebSocketSession, Boolean> entry = it.next();
-            if (entry.getValue()) { // if the session is authenticated
-                WebSocketSession session = entry.getKey();
-                try {
-                    TextMessage message = new TextMessage(str);
-                    log.info("Sending message {} to {}", message, session);
-                    session.sendMessage(message);
-                } catch (IOException e) {
-                    log.warn("Error sending message, removing the session: " + e);
-                    it.remove();
+        if (it.hasNext()) {
+            byte[] bytes = SerializationSupport.serialize(event);
+            String str;
+            try {
+                str = new String(Base64.getEncoder().encode(bytes), "UTF-8");
+            } catch (UnsupportedEncodingException e) {
+                throw new RuntimeException(e);
+            }
+
+            while (it.hasNext()) {
+                Map.Entry<WebSocketSession, Boolean> entry = it.next();
+                if (entry.getValue()) { // if the session is authenticated
+                    WebSocketSession session = entry.getKey();
+                    try {
+                        TextMessage message = new TextMessage(str);
+                        log.info("Sending message {} to {}", message, session);
+                        session.sendMessage(message);
+                    } catch (IOException e) {
+                        log.warn("Error sending message, removing the session: " + e);
+                        it.remove();
+                    }
                 }
             }
         }
