@@ -1,4 +1,4 @@
-package com.company.globaleventspoc.core;
+package com.company.globaleventspoc.core.springwebsocket;
 
 import com.haulmont.cuba.core.sys.AppContext;
 import org.springframework.context.ApplicationContext;

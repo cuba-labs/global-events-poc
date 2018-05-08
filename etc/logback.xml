@@ -33,6 +33,12 @@
         <appender-ref ref="File"/>
     </root>
 
+    <!--Global Events -->
+
+    <logger name="com.company.globaleventspoc.core.springwebsocket" level="INFO"/>
+
+    <logger name="org.springframework.web.socket.sockjs.client.SockJsClient" level="OFF"/>
+
     <!-- Begin CUBA -->
 
     <logger name="com.haulmont.cuba" level="DEBUG"/>

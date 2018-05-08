@@ -7,15 +7,16 @@ import com.haulmont.cuba.core.sys.events.AppContextStoppedEvent;
 import com.haulmont.cuba.core.sys.remoting.discovery.ServerSelector;
 import com.haulmont.cuba.core.sys.remoting.discovery.StickySessionServerSelector;
 import com.haulmont.cuba.core.sys.serialization.SerializationSupport;
+import com.haulmont.cuba.web.auth.WebAuthConfig;
 import com.haulmont.cuba.web.security.events.AppStartedEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
-import org.springframework.web.socket.client.WebSocketConnectionManager;
 import org.springframework.web.socket.client.standard.StandardWebSocketClient;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 import org.springframework.web.socket.sockjs.client.SockJsClient;
@@ -28,6 +29,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
 
 @Component("globevnt_WebSocketClient")
 public class WebSocketClient {
@@ -48,6 +50,9 @@ public class WebSocketClient {
     @Inject
     private GlobalEventsWebBroadcaster globalEventsWebBroadcaster;
 
+    @Inject
+    private WebAuthConfig webAuthConfig;
+
     @EventListener(AppStartedEvent.class)
     public void init() {
         // connect on first web request
@@ -63,26 +68,47 @@ public class WebSocketClient {
     public synchronized void connect() {
         if (webSocketSession != null)
             return;
-        log.info("Opening WebSocket session");
+        log.info("Opening session");
 
         Object context = serverSelector.initContext();
         String url = getUrl(context);
         if (url == null) {
-            throw new RuntimeException("Unable to open WebSocket: no available server URLs");
+            throw new RuntimeException("Unable to open session: no available server URLs");
         }
         while (true) {
             try {
-                tryConnect(url);
+                webSocketSession = tryConnect(url);
                 break;
-            } catch (IOException e) {
-                serverSelector.fail(context);
-                url = getUrl(context);
-                if (url != null)
-                    log.debug("Trying next URL");
-                else
-                    throw new RuntimeException("Unable to open WebSocket: no more server URLs available");
+            } catch (ExecutionException e) {
+                if (e.getCause() instanceof ResourceAccessException) {
+                    log.info("Unable to open session: {}", e.getCause().toString());
+                    serverSelector.fail(context);
+                    url = getUrl(context);
+                    if (url != null)
+                        log.debug("Trying next URL");
+                    else
+                        throw new RuntimeException("Unable to open session: no more server URLs available");
+                } else {
+                    throw new RuntimeException("Error opening session", e);
+                }
+            } catch (InterruptedException e) {
+                log.warn("Interrupted attempt to open session");
+                Thread.currentThread().interrupt();
+                break;
             }
+        }
+        authenticate();
+    }
 
+    private void authenticate() {
+        if (webSocketSession == null || !webSocketSession.isOpen()) {
+            log.error("Invalid session: " + webSocketSession);
+            return;
+        }
+        try {
+            webSocketSession.sendMessage(new TextMessage(webAuthConfig.getTrustedClientPassword()));
+        } catch (IOException e) {
+            throw new RuntimeException("Error sending auth message", e);
         }
     }
 
@@ -95,39 +121,17 @@ public class WebSocketClient {
         return url;
     }
 
-    private void tryConnect(String serverUrl) throws IOException {
+    private WebSocketSession tryConnect(String serverUrl) throws ExecutionException, InterruptedException {
         log.debug("Connecting to " + serverUrl);
 
-        org.springframework.web.socket.client.WebSocketClient simpleWebSocketClient = new StandardWebSocketClient();
+        StandardWebSocketClient standardWebSocketClient = new StandardWebSocketClient();
         List<Transport> transports = new ArrayList<>(1);
-        transports.add(new WebSocketTransport(simpleWebSocketClient));
+        transports.add(new WebSocketTransport(standardWebSocketClient));
         SockJsClient sockJsClient = new SockJsClient(transports);
 
-        WebSocketConnectionManager connectionManager = new WebSocketConnectionManager(sockJsClient,
-                new TextWebSocketHandler() {
-
-                    @Override
-                    public void afterConnectionEstablished(WebSocketSession session) throws Exception {
-                        log.info("Opened " + session);
-                        webSocketSession = session;
-                    }
-
-                    @Override
-                    public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
-                        log.info("Closed " + session);
-                        webSocketSession = null;
-                    }
-
-                    @Override
-                    protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
-                        log.info("Received message {} from {}", message, session);
-                        byte[] bytes = Base64.getDecoder().decode(message.getPayload().getBytes("UTF-8"));
-                        GlobalApplicationEvent event = (GlobalApplicationEvent) SerializationSupport.deserialize(bytes);
-                        publishEvent(event);
-                    }
-                },
-                serverUrl + "websocket/wsHandler");
-        connectionManager.start();
+        return sockJsClient
+                .doHandshake(new ClientWebSocketHandler(), serverUrl + "websocket/wsHandler")
+                .get();
     }
 
     private void publishEvent(GlobalApplicationEvent event) {
@@ -145,12 +149,33 @@ public class WebSocketClient {
 
     @EventListener(AppContextStoppedEvent.class)
     public synchronized void disconnect() {
-        log.info("Closing socket");
+        log.info("Closing session");
         try {
             webSocketSession.close();
         } catch (IOException e) {
-            log.warn("Error closing WebSocket session: " + e);
+            log.warn("Error closing session: " + e);
         }
         webSocketSession = null;
+    }
+
+    private class ClientWebSocketHandler extends TextWebSocketHandler {
+
+        @Override
+        public void afterConnectionEstablished(WebSocketSession session) throws Exception {
+            log.info("Opened " + session);
+        }
+
+        @Override
+        public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
+            log.info("Closed " + session);
+        }
+
+        @Override
+        protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
+            log.info("Received message {} from {}", message, session);
+            byte[] bytes = Base64.getDecoder().decode(message.getPayload().getBytes("UTF-8"));
+            GlobalApplicationEvent event = (GlobalApplicationEvent) SerializationSupport.deserialize(bytes);
+            publishEvent(event);
+        }
     }
 }

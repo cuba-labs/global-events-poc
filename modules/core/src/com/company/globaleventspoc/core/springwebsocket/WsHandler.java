@@ -27,15 +27,18 @@ public class WsHandler extends TextWebSocketHandler {
     @Override
     protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
         log.info("Received {} from {}", message, session);
+        webSocketServer.onMessage(session, message);
     }
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
+        log.info("Opened session {}", session);
         webSocketServer.addSession(session);
     }
 
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
+        log.info("Closed session {}", session);
         webSocketServer.removeSession(session);
     }
 }
