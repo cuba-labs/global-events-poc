@@ -38,7 +38,7 @@ public class WsHandler extends TextWebSocketHandler {
 
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
-        log.info("Closed session {}", session);
+        log.info("Closed session {} with status {}", session, status);
         webSocketServer.removeSession(session);
     }
 }

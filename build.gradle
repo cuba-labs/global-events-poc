@@ -53,6 +53,7 @@ cuba {
 
 dependencies {
     appComponent("com.haulmont.cuba:cuba-global:$cubaVersion")
+    appComponent("com.haulmont.addon.zookeeper:cubazk-global:1.3.1")
 }
 
 def postgres = 'org.postgresql:postgresql:9.4.1212'
@@ -97,6 +98,7 @@ configure(coreModule) {
         jdbc(postgres)
         testRuntime(postgres)
         compile('org.springframework:spring-websocket:4.3.12.RELEASE')
+        compile(bom['com.fasterxml.jackson.core:jackson-databind'])
     }
 
     task cleanConf(description: 'Cleans up conf directory') {
@@ -148,6 +150,7 @@ configure(webModule) {
         compile(globalModule)
         compile(sharedLibModule)
         compile('org.springframework:spring-websocket:4.3.12.RELEASE')
+        compile(bom['com.fasterxml.jackson.core:jackson-databind'])
     }
     
     task webArchive(type: Zip) {

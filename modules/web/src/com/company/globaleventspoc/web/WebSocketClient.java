@@ -2,7 +2,6 @@ package com.company.globaleventspoc.web;
 
 import com.company.globaleventspoc.GlobalApplicationEvent;
 import com.company.globaleventspoc.GlobalUiEvent;
-import com.haulmont.cuba.client.ClientConfig;
 import com.haulmont.cuba.core.global.Events;
 import com.haulmont.cuba.core.sys.events.AppContextStoppedEvent;
 import com.haulmont.cuba.core.sys.remoting.discovery.ServerSelector;
@@ -114,6 +113,7 @@ public class WebSocketClient {
             log.error("Invalid session: " + webSocketSession);
             return;
         }
+        log.info("Sending auth message to " + webSocketSession);
         try {
             webSocketSession.sendMessage(new TextMessage(webAuthConfig.getTrustedClientPassword()));
         } catch (IOException e) {
@@ -178,6 +178,9 @@ public class WebSocketClient {
         @Override
         public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
             log.info("Closed " + session);
+            if (webSocketSession != null && webSocketSession.getId().equals(session.getId())) {
+                webSocketSession = null;
+            }
         }
 
         @Override
